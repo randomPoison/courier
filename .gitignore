@@ -1,7 +1,3 @@
 target/
 **/*.rs.bk
 Cargo.lock
-
-# IntelliJ IDEA
-.idea
-rocket_derive.iml

@@ -3,7 +3,7 @@
 
 extern crate rocket;
 #[macro_use]
-extern crate rocket_derive;
+extern crate courier;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;

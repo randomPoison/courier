@@ -1,6 +1,6 @@
 [package]
 authors = ["David LeGare <excaliburhissheath@gmail.com>"]
-name = "rocket_derive"
+name = "courier"
 version = "0.3.0"
 
 [lib]
