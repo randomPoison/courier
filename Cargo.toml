@@ -1,7 +1,14 @@
 [package]
-authors = ["David LeGare <excaliburhissheath@gmail.com>"]
 name = "courier"
 version = "0.3.0"
+authors = ["David LeGare <excaliburhissheath@gmail.com>"]
+description = "Utility to make it easier to send and receive data when using the Rocket framework."
+documentation = "https://docs.rs/courier"
+repository = "https://github.com/excaliburHisSheath/courier"
+readme = "./README.md"
+keywords = ["rocket"]
+license = "MIT/Apache-2.0"
+categories = ["development-tools", "web-programming"]
 
 [lib]
 proc-macro = true
