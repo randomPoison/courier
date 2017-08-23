@@ -1,6 +1,6 @@
 [package]
 name = "courier"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["David LeGare <excaliburhissheath@gmail.com>"]
 description = "Utility to make it easier to send and receive data when using the Rocket framework."
 documentation = "https://docs.rs/courier"

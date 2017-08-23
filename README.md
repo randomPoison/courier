@@ -46,7 +46,7 @@ Add `courier`, as well as the relevant Serde crates to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-courier = "0.3"
+courier = "0.3.1"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
@@ -92,7 +92,7 @@ serde_derive = "1.0"
 serde_json = "1.0"
 
 [dependencies.courier]
-version = "0.3"
+version = "0.3.1"
 features = ["msgpack"]
 ```
 
@@ -114,7 +114,7 @@ not wish to support JSON, you can specify `default-features = false` in your `Ca
 
 ```toml
 [dependencies.courier]
-version = "0.3"
+version = "0.3.1"
 default-features = false
 features = ["msgpack"]
 ```
@@ -122,9 +122,8 @@ features = ["msgpack"]
 ## Using Multiple Formats
 
 When multiple formats are enabled at once, the [`Content-Type`] header in the request is used to
-determine which format to use. A response will use the same content type specified in the request,
-so a request sent with JSON will receive a response with JSON, a request sent with MessagePack
-will get a response with MessagePack, and so on.
+determine which format the request data is in, and the [`Accept`] header is used to determine which
+format to use for the response.
 
 While this mostly removes the need for [`rocket_contrib::Json`] (and similar types), it is still
 possible to use it to override the behavior defined with `courier`. For example, say you
@@ -168,4 +167,5 @@ Note, though, that recommended to not explicitly specify the `format` parameter 
 [`serde_json`]: https://crates.io/crates/serde_json
 [`rmp-serde`]: https://crates.io/crates/rmp-serde
 [`Content-Type`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type
+[`Accept`]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept
 [`rocket_contrib::Json`]: https://api.rocket.rs/rocket_contrib/struct.Json.html
