@@ -4,7 +4,7 @@ cache: cargo
 script:
   - cargo build --verbose
   - cargo test --verbose
-  - [[ ! -z "$TRAVIS_TAG" ]] && cargo publish --token $CRATES_TOKEN
+  - [ ! -z "$TRAVIS_TAG" ] && cargo publish --token $CRATES_TOKEN
 env:
   global:
     secure: LhfpNhnwxCBU+7PpHL3B5d01hyLwl0MKTkMYp2TP9JlGQ45b8yB6juHaxjXxkCnFi+sMGK6P0tJW5otzzp+G4oQlXvU9DMl9vjl0Ge+CW5wNbP9lUWB7MSnWdgfevfO3SCcHShjP/roInvUQDoKqSpQ+DY6G8TRT4AiEFBsqvBHryEipQD2oUGErkaZe1qH94NgqQob6dPPAI349Iwib+77eycn98rlrlsQqclPlUbooKndKcEdOhmy9xvbLXeACmKucGUkbq3wnqIYqnQDy1WFZ1z/ID/ngvfzvIxEc6dghOD96QdB2f7bYl6kqu7rMYJJcQ3x87omuSD9ksSqaF+qqre2vFPBWiEnFl6G5OwKTFQjB0W6Jwss1/xFQJoyYCqWq49Xn7T1sjU0hVzeq7sXaoyIxv4z1OaJyVp62foJPJL7BCk6pXzuPRQDGAAB8wrNXSNMLrgeZfKX253qcoqozItlBmpJXF3El8cGml0qLyQpCGZRFE4JndoCbhFLPJizq8vukpj/3kEeRFCUqPBIBhaaB6+yiPbaxSxTv2BLmuAUyT4BvWSWbdFaSMg6tf6uBd5qLjfAEFQ3Cm//AQj7PCUZGeWpul1qX5t+evoEdK6kQqiO8VaQcShZI+RCF/qAYof/jWTQaPaUbtSm6ZYVnf38DVDph4Pn/smm7mJ4=
