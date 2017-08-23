@@ -7,7 +7,12 @@ extern crate courier;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+
+#[cfg(feature = "json")]
 extern crate serde_json;
+
+#[cfg(feature = "msgpack")]
+extern crate rmp_serde;
 
 #[derive(Deserialize, FromData)]
 pub struct CustomRequest {

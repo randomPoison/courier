@@ -1,9 +1,15 @@
 language: rust
 rust: nightly
-cache: cargo
 script:
-  - cargo build --verbose
-  - cargo test --verbose
+  # Build with all features to make sure they all compile.
+  - cargo build --verbose --all-features
+
+  # Test with combinations of all different features enabled to make sure they all work.
+  - cargo test --verbose --no-default-features --features "json"
+  - cargo test --verbose --no-default-features --features "msgpack"
+  - cargo test --verbose --all-features
+
+  # If we're building a tag, then publish to crates.io.
   - if [ ! -z "$TRAVIS_TAG" ]; then cargo publish --token $CRATES_TOKEN; fi
 env:
   global:

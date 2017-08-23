@@ -1,4 +1,4 @@
-#![cfg(feature = "json")]
+#![cfg(feature = "msgpack")]
 
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
@@ -6,15 +6,16 @@
 extern crate rocket;
 #[macro_use]
 extern crate courier;
-#[cfg(feature = "msgpack")]
 extern crate rmp_serde;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+
+#[cfg(feature = "json")]
 extern crate serde_json;
 
 use rocket::local::Client;
-use rocket::http::{Accept, ContentType, Status};
+use rocket::http::{Accept, ContentType, MediaType, Status};
 
 #[derive(Debug, Serialize, Deserialize, FromData, PartialEq, Eq)]
 pub struct CustomRequest {
@@ -31,6 +32,7 @@ pub struct CustomResponse {
 fn request_response() {
     #[post("/test", data = "<request>")]
     fn handler(request: CustomRequest) -> CustomResponse {
+        println!("Received request: {:?}", request);
         assert_eq!(CustomRequest { foo: "Foo".into(), bar: 10 }, request);
         CustomResponse { baz: request.bar }
     }
@@ -38,13 +40,13 @@ fn request_response() {
     let rocket = rocket::ignite().mount("/", routes![handler]);
     let client = Client::new(rocket).unwrap();
     let mut response = client.post("/test")
-        .body(serde_json::to_string(&CustomRequest { foo: "Foo".into(), bar: 10 }).unwrap())
-        .header(ContentType::JSON)
-        .header(Accept::JSON)
+        .body(rmp_serde::to_vec(&CustomRequest { foo: "Foo".into(), bar: 10 }).unwrap())
+        .header(ContentType::new("application", "msgpack"))
+        .header(Accept::new(&[MediaType::new("application", "msgpack").into()]))
         .dispatch();
     assert_eq!(Status::Ok, response.status());
-    let body = response.body_string().expect("No body in test response");
-    let response = serde_json::from_str(&*body).expect("Failed to parse response JSON");
+    let body = response.body_bytes().expect("No body in test response");
+    let response = rmp_serde::from_slice(&*body).expect("Failed to parse response JSON");
     assert_eq!(CustomResponse { baz: 10 }, response);
 }
 
@@ -59,8 +61,8 @@ fn not_acceptable() {
     let rocket = rocket::ignite().mount("/", routes![handler]);
     let client = Client::new(rocket).unwrap();
     let response = client.post("/test")
-        .body(serde_json::to_string(&CustomRequest { foo: "Foo".into(), bar: 10 }).unwrap())
-        .header(ContentType::JSON)
+        .body(rmp_serde::to_vec(&CustomRequest { foo: "Foo".into(), bar: 10 }).unwrap())
+        .header(ContentType::new("application", "msgpack"))
         .dispatch();
     assert_eq!(Status::NotAcceptable, response.status());
 }

@@ -36,7 +36,10 @@
 //! # #[macro_use] extern crate courier;
 //! # extern crate serde;
 //! # #[macro_use] extern crate serde_derive;
+//! # #[cfg(feature = "json")]
 //! # extern crate serde_json;
+//! # #[cfg(feature = "msgpack")]
+//! # extern crate rmp_serde;
 //! #[derive(Deserialize, FromData)]
 //! pub struct CustomRequest {
 //!     // Some members go here.
@@ -79,7 +82,7 @@
 //!
 //! And then add `rmp-serde` to your project root:
 //!
-//! ```rust
+//! ```rust,ignore
 //! #[macro_use]
 //! extern crate courier;
 //!
@@ -119,7 +122,10 @@
 //! # #[macro_use] extern crate courier;
 //! # extern crate serde;
 //! # #[macro_use] extern crate serde_derive;
+//! # #[cfg(feature = "json")]
 //! # extern crate serde_json;
+//! # #[cfg(feature = "msgpack")]
+//! # extern crate rmp_serde;
 //! #
 //! # #[derive(Deserialize, FromData)]
 //! # pub struct CustomRequest {
@@ -147,7 +153,10 @@
 //! # #[macro_use] extern crate courier;
 //! # extern crate serde;
 //! # #[macro_use] extern crate serde_derive;
+//! # #[cfg(feature = "json")]
 //! # extern crate serde_json;
+//! # #[cfg(feature = "msgpack")]
+//! # extern crate rmp_serde;
 //! #
 //! # #[derive(Deserialize, FromData)]
 //! # pub struct CustomRequest {
@@ -199,8 +208,52 @@ pub fn derive_from_data(input: TokenStream) -> TokenStream {
     let derive_input = syn::parse_derive_input(&input.to_string()).unwrap();
     let ident = derive_input.ident;
 
-    let json = from_data_json();
-    let msgpack = from_data_msgpack();
+    let json = if cfg!(feature = "json") {
+        quote! {{
+            let is_json = request.content_type().map(|ct| ct.is_json()).unwrap_or(false);
+            if is_json {
+                let limit = request.limits().get("json").unwrap_or(u64::MAX);
+                let reader = data.open().take(limit);
+                return match ::serde_json::from_reader(reader) {
+                    Ok(value) => Outcome::Success(value),
+                    Err(_error) => Outcome::Failure((Status::InternalServerError, Failure(Status::InternalServerError))),
+                };
+            }
+        }}
+    } else {
+        Tokens::new()
+    };
+
+
+    let msgpack = if cfg!(feature = "msgpack") {
+        quote! {{
+            // Accepted content types are:
+            //
+            // - `application/msgpack`
+            // - `application/x-msgpack`
+            // - `bin/msgpack`
+            // - `bin/x-msgpack`
+            let is_msgpack = request.content_type()
+                .map(|content_type| {
+                    (content_type.top() == "application" || content_type.top() == "bin") &&
+                    (content_type.sub() == "msgpack" || content_type.sub() == "x-msgpack")
+                })
+                .unwrap_or(false);
+            if is_msgpack {
+                let limit = request.limits().get("msgpack").unwrap_or(u64::MAX);
+                let reader = data.open().take(limit);
+                return match ::rmp_serde::decode::from_read(reader) {
+                    Ok(value) => Outcome::Success(value),
+                    Err(_) => Outcome::Failure((
+                        Status::InternalServerError,
+                        Failure(Status::InternalServerError),
+                    )),
+                };
+            }
+        }}
+    } else {
+        Tokens::new()
+    };
 
     let gen = quote! {
         impl ::rocket::data::FromData for #ident {
@@ -231,67 +284,68 @@ pub fn derive_responder(input: TokenStream) -> TokenStream {
     let derive_input = syn::parse_derive_input(&input.to_string()).unwrap();
     let ident = derive_input.ident;
 
+    let json = if cfg!(feature = "json") {
+        quote! {{
+            let accept_json = request.accept()
+                .map(|accept| accept.preferred().is_json())
+                .unwrap_or(false);
+            if accept_json {
+                return ::serde_json::to_string(&self).map(|string| {
+                    ::rocket::response::content::Json(string).respond_to(request).unwrap()
+                }).map_err(|_error| {
+                    ::rocket::http::Status::InternalServerError
+                });
+            }
+        }}
+    } else {
+        Tokens::new()
+    };
+
+    let msgpack = if cfg!(feature = "msgpack") {
+        quote! {{
+            // Accepted content types are:
+            //
+            // - `application/msgpack`
+            // - `application/x-msgpack`
+            // - `bin/msgpack`
+            // - `bin/x-msgpack`
+            let accept_msgpack = request.accept()
+                .map(|accept| accept.preferred())
+                .map(|content_type| {
+                    (content_type.top() == "application" || content_type.top() == "bin") &&
+                    (content_type.sub() == "msgpack" || content_type.sub() == "x-msgpack")
+                })
+                .unwrap_or(false);
+            if accept_msgpack {
+                return rmp_serde::to_vec(&self)
+                    .map_err(|_| ::rocket::http::Status::InternalServerError)
+                    .and_then(|buf| {
+                        ::rocket::response::Response::build()
+                            .sized_body(::std::io::Cursor::new(buf))
+                            .ok()
+                    });
+            }
+        }}
+    } else {
+        Tokens::new()
+    };
+
     let gen = quote! {
         /// Serializes the wrapped value into JSON. Returns a response with Content-Type
         /// JSON and a fixed-size body with the serialized value. If serialization
         /// fails, an `Err` of `Status::InternalServerError` is returned.
         impl ::rocket::response::Responder<'static> for #ident {
             fn respond_to(self, request: &::rocket::Request) -> ::rocket::response::Result<'static> {
-                // TODO: Serialize to different formats based on the content type of the request.
-                ::serde_json::to_string(&self).map(|string| {
-                    ::rocket::response::content::Json(string).respond_to(request).unwrap()
-                }).map_err(|_error| {
-                    ::rocket::http::Status::InternalServerError
-                })
+                #json
+
+                #msgpack
+
+                // If none of the known formats are specified in the `Accept` header, then return
+                // a 406 Not Acceptable error to indicate that the resource couldn't be returned
+                // in an acceptable format.
+                Err(::rocket::http::Status::NotAcceptable)
             }
         }
     };
     gen.parse().unwrap()
-}
-
-fn from_data_json() -> Tokens {
-    if cfg!(feature = "json") {
-        quote! {{
-            let is_json = request.content_type().map(|ct| ct.is_json()).unwrap_or(false);
-            if is_json {
-                let limit = request.limits().get("json").unwrap_or(u64::MAX);
-                let reader = data.open().take(limit);
-                return match ::serde_json::from_reader(reader) {
-                    Ok(value) => Outcome::Success(value),
-                    Err(_error) => Outcome::Failure((Status::InternalServerError, Failure(Status::InternalServerError))),
-                };
-            }
-        }}
-    } else {
-        Tokens::new()
-    }
-}
-
-fn from_data_msgpack() -> Tokens {
-    if cfg!(feature = "msgpack") {
-        quote! {{
-            // Accepted content types are:
-            //
-            // - `application/msgpack`
-            // - `application/x-msgpack`,
-            // - `bin/msgpack`
-            // - `bin/x-msgpack`.
-            let is_msgpack = request.content_type()
-                .map(|content_type| {
-                    (content_type.top() == "application" || content_type.top() == "bin") &&
-                    (content_type.sub() == "msgpack" || content_type.sub() == "x-msgpack")
-                })
-                .unwrap_or(false);
-            if is_msgpack {
-                let limit = request.limits().get("msgpack").unwrap_or(u64::MAX);
-                let reader = data.open().take(limit);
-                return match ::rmp_serde::decode::from_read(reader) {
-                    Ok(value) => Outcome::Success(value),
-                    Err(_error) => Outcome::Failure((Status::InternalServerError, Failure(Status::InternalServerError))),
-                };
-            }
-        }}
-    } else {
-        Tokens::new()
-    }
 }
